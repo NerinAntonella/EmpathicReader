@@ -15,7 +15,7 @@ if (!GOOGLE_TTS_API_KEY) {
 
 app.post('/tts', async (req, res) => {
   console.log('Backend: Recibida solicitud POST en /tts');
-  const { text } = req.body; // Google TTS no usa un 'voiceId' de ElevenLabs, sino un 'voice' object.
+  const { text } = req.body;
 
   if (!GOOGLE_TTS_API_KEY) {
     return res.status(500).json({ error: 'Google TTS API Key no configurada en el servidor.' });
@@ -36,11 +36,8 @@ app.post('/tts', async (req, res) => {
       },
       body: JSON.stringify({
         input: { text: text },
-        // Configuración de la voz en español (Argentina si es posible, o general)
-        // Puedes explorar más voces en la documentación de Google Cloud TTS
-        // 'es-AR-Standard-A' es una opción para español de Argentina (si está disponible en tu nivel de servicio)
-        // 'es-ES-Standard-A' o 'es-ES-Wavenet-A' son voces estándar en español
-        voice: { languageCode: 'es-ES', name: 'es-AR-Standard-A' }, 
+        // **** CAMBIO AQUÍ: Usando la voz es-AR-Standard-A ****
+        voice: { languageCode: 'es-AR', name: 'es-AR-Standard-A' },
         audioConfig: { audioEncoding: 'MP3' },
       }),
     });
@@ -60,11 +57,10 @@ app.post('/tts', async (req, res) => {
         return res.status(500).json({ error: 'No se recibió contenido de audio de Google TTS.' });
     }
 
-    // El audio de Google TTS viene en base64, necesitamos decodificarlo
     const audioBuffer = Buffer.from(responseData.audioContent, 'base64');
     
-    res.set('Content-Type', 'audio/mpeg'); // Establecer el tipo de contenido como audio MPEG
-    res.send(audioBuffer); // Enviar el buffer de audio
+    res.set('Content-Type', 'audio/mpeg');
+    res.send(audioBuffer);
     console.log('Backend: Audio enviado con éxito.');
 
   } catch (error) {
