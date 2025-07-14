@@ -1,58 +1,70 @@
-// Usar sintaxis de import/export para módulos ES
 import express from 'express';
-import fetch from 'node-fetch'; // node-fetch ya es ESM por defecto en v3+
+import fetch from 'node-fetch';
 
 const app = express();
 app.use(express.json());
 
-// La API Key de ElevenLabs se lee de una variable de entorno por seguridad.
-const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY;
+// La API Key de Google Cloud TTS se lee de una variable de entorno.
+// Asegúrate de configurar GOOGLE_TTS_API_KEY en Render.com
+const GOOGLE_TTS_API_KEY = process.env.GOOGLE_TTS_API_KEY;
 
 // Verificar que la API Key esté configurada
-if (!ELEVENLABS_API_KEY) {
-  console.error('ERROR: La variable de entorno ELEVENLABS_API_KEY no está configurada en el servidor.');
+if (!GOOGLE_TTS_API_KEY) {
+  console.error('ERROR: La variable de entorno GOOGLE_TTS_API_KEY no está configurada en el servidor.');
 }
 
 app.post('/tts', async (req, res) => {
   console.log('Backend: Recibida solicitud POST en /tts');
-  const { text, voiceId } = req.body;
+  const { text } = req.body; // Google TTS no usa un 'voiceId' de ElevenLabs, sino un 'voice' object.
 
-  if (!ELEVENLABS_API_KEY) {
-    return res.status(500).json({ error: 'ElevenLabs API Key no configurada en el servidor.' });
+  if (!GOOGLE_TTS_API_KEY) {
+    return res.status(500).json({ error: 'Google TTS API Key no configurada en el servidor.' });
   }
 
-  if (!text || !voiceId) {
-    return res.status(400).json({ error: 'Faltan parámetros: "text" o "voiceId".' });
+  if (!text) {
+    return res.status(400).json({ error: 'Faltan parámetros: "text".' });
   }
 
   try {
-    console.log('Backend: Realizando llamada a ElevenLabs...');
-    const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
+    console.log('Backend: Realizando llamada a Google Cloud Text-to-Speech...');
+
+    // Configuración de la solicitud para Google Cloud TTS
+    const googleTTSResponse = await fetch(`https://texttospeech.googleapis.com/v1/text:synthesize?key=${GOOGLE_TTS_API_KEY}`, {
       method: 'POST',
       headers: {
-        'xi-api-key': ELEVENLABS_API_KEY,
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        text,
-        voice_settings: { stability: 0.5, similarity_boost: 0.5 }
-      })
+        input: { text: text },
+        // Configuración de la voz en español (Argentina si es posible, o general)
+        // Puedes explorar más voces en la documentación de Google Cloud TTS
+        // 'es-AR-Standard-A' es una opción para español de Argentina (si está disponible en tu nivel de servicio)
+        // 'es-ES-Standard-A' o 'es-ES-Wavenet-A' son voces estándar en español
+        voice: { languageCode: 'es-ES', name: 'es-ES-Standard-A' }, // Usaremos una voz estándar de España por ser más común en el nivel gratuito
+        audioConfig: { audioEncoding: 'MP3' },
+      }),
     });
 
-    if (!response.ok) {
-      const errorData = await response.json(); 
-      console.error('Backend: Error de ElevenLabs:', errorData);
-      return res.status(response.status).json({ 
-        error: 'Error de ElevenLabs', 
-        details: errorData.detail || 'Error desconocido de ElevenLabs.' 
+    if (!googleTTSResponse.ok) {
+      const errorData = await googleTTSResponse.json(); 
+      console.error('Backend: Error de Google Cloud TTS:', errorData);
+      return res.status(googleTTSResponse.status).json({ 
+        error: 'Error de Google Cloud TTS', 
+        details: errorData.error.message || 'Error desconocido de Google TTS.' 
       });
     }
 
-    const audio = await response.arrayBuffer();
-    res.set('Content-Type', 'audio/mpeg');
-    // Para usar Buffer en ESM, necesitas importarlo o asegurarte de que esté disponible globalmente
-    // En Render, Node.js ya tiene Buffer globalmente, pero para mayor claridad:
-    res.send(Buffer.from(audio)); 
+    const responseData = await googleTTSResponse.json();
+    if (!responseData.audioContent) {
+        console.error('Backend: No se recibió contenido de audio de Google TTS.');
+        return res.status(500).json({ error: 'No se recibió contenido de audio de Google TTS.' });
+    }
+
+    // El audio de Google TTS viene en base64, necesitamos decodificarlo
+    const audioBuffer = Buffer.from(responseData.audioContent, 'base64');
+    
+    res.set('Content-Type', 'audio/mpeg'); // Establecer el tipo de contenido como audio MPEG
+    res.send(audioBuffer); // Enviar el buffer de audio
     console.log('Backend: Audio enviado con éxito.');
 
   } catch (error) {
