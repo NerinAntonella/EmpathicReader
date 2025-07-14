@@ -1,16 +1,14 @@
 {
-  "name": "backend-relay",
+  "name": "empathic-reader-tts-relay",
   "version": "1.0.0",
-  "main": "index.js",
+  "description": "Backend relay for ElevenLabs TTS",
+  "main": "server.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node server.js"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "description": "",
   "dependencies": {
-    "express": "^5.1.0",
+    "express": "^4.19.2",
     "node-fetch": "^3.3.2"
-  }
+  },
+  "type": "module"
 }
