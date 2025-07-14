@@ -36,8 +36,8 @@ app.post('/tts', async (req, res) => {
       },
       body: JSON.stringify({
         input: { text: text },
-        // **** CAMBIO AQUÍ: Usando la voz es-AR-Standard-A ****
-        voice: { languageCode: 'es-AR', name: 'es-AR-Standard-A' },
+        // **** CAMBIO AQUÍ: Usando la voz es-ES-Standard-A (estándar de España) ****
+        voice: { languageCode: 'es-ES', name: 'es-ES-Standard-A' },
         audioConfig: { audioEncoding: 'MP3' },
       }),
     });
