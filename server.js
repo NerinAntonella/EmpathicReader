@@ -40,7 +40,7 @@ app.post('/tts', async (req, res) => {
         // Puedes explorar más voces en la documentación de Google Cloud TTS
         // 'es-AR-Standard-A' es una opción para español de Argentina (si está disponible en tu nivel de servicio)
         // 'es-ES-Standard-A' o 'es-ES-Wavenet-A' son voces estándar en español
-        voice: { languageCode: 'es-ES', name: 'es-ES-Standard-A' }, // Usaremos una voz estándar de España por ser más común en el nivel gratuito
+        voice: { languageCode: 'es-ES', name: 'es-AR-Standard-A' }, 
         audioConfig: { audioEncoding: 'MP3' },
       }),
     });
