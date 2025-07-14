@@ -1,5 +1,7 @@
-const express = require('express');
-const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
+// Usar sintaxis de import/export para módulos ES
+import express from 'express';
+import fetch from 'node-fetch'; // node-fetch ya es ESM por defecto en v3+
+
 const app = express();
 app.use(express.json());
 
@@ -9,24 +11,22 @@ const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY;
 // Verificar que la API Key esté configurada
 if (!ELEVENLABS_API_KEY) {
   console.error('ERROR: La variable de entorno ELEVENLABS_API_KEY no está configurada en el servidor.');
-  // Si la API Key no está configurada, el servidor devolverá un error 500 para las peticiones TTS.
 }
 
 app.post('/tts', async (req, res) => {
+  console.log('Backend: Recibida solicitud POST en /tts');
   const { text, voiceId } = req.body;
 
   if (!ELEVENLABS_API_KEY) {
-    // Devolver un error si la API Key no está configurada
     return res.status(500).json({ error: 'ElevenLabs API Key no configurada en el servidor.' });
   }
 
   if (!text || !voiceId) {
-    // Devolver un error si faltan parámetros en la solicitud
     return res.status(400).json({ error: 'Faltan parámetros: "text" o "voiceId".' });
   }
 
   try {
-    // Llamada a ElevenLabs
+    console.log('Backend: Realizando llamada a ElevenLabs...');
     const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
       method: 'POST',
       headers: {
@@ -39,31 +39,29 @@ app.post('/tts', async (req, res) => {
       })
     });
 
-    // Manejo de errores de ElevenLabs
     if (!response.ok) {
-      // Si ElevenLabs devuelve un error (ej. 401 Unauthorized, 402 Payment Required, 400 Bad Request),
-      // leer el mensaje de error de ElevenLabs (generalmente en formato JSON)
       const errorData = await response.json(); 
-      console.error('Error de ElevenLabs:', errorData);
-      // Devolver el error de ElevenLabs a la extensión con el mismo código de estado que ElevenLabs envió
+      console.error('Backend: Error de ElevenLabs:', errorData);
       return res.status(response.status).json({ 
         error: 'Error de ElevenLabs', 
         details: errorData.detail || 'Error desconocido de ElevenLabs.' 
       });
     }
 
-    // Si la respuesta de ElevenLabs es OK, entonces es audio
     const audio = await response.arrayBuffer();
-    res.set('Content-Type', 'audio/mpeg'); // Establecer el tipo de contenido como audio MPEG
-    res.send(Buffer.from(audio)); // Enviar el buffer de audio
+    res.set('Content-Type', 'audio/mpeg');
+    // Para usar Buffer en ESM, necesitas importarlo o asegurarte de que esté disponible globalmente
+    // En Render, Node.js ya tiene Buffer globalmente, pero para mayor claridad:
+    res.send(Buffer.from(audio)); 
+    console.log('Backend: Audio enviado con éxito.');
 
   } catch (error) {
-    // Capturar cualquier otro error que ocurra durante la petición o procesamiento
-    console.error('Error en el backend-relay al procesar TTS:', error);
+    console.error('Backend: Error interno del servidor al procesar TTS:', error);
     res.status(500).json({ error: 'Error interno del servidor al procesar la solicitud de TTS.' });
   }
 });
 
-app.listen(3001, () => {
-  console.log('Relay backend corriendo en http://localhost:3001');
+const PORT = process.env.PORT || 3001; 
+app.listen(PORT, () => {
+  console.log(`Relay backend corriendo en el puerto ${PORT}`);
 });
