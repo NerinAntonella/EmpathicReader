@@ -1,14 +1,17 @@
 {
   "name": "empathic-reader-tts-relay",
   "version": "1.0.0",
-  "description": "Backend relay for ElevenLabs TTS",
+  "description": "Backend relay for Google Cloud Text-to-Speech",
   "main": "server.js",
+  "type": "module", // Asegúrate de que esto esté para los 'import'
   "scripts": {
     "start": "node server.js"
   },
   "dependencies": {
-    "express": "^4.19.2",
-    "node-fetch": "^3.3.2"
-  },
-  "type": "module"
+    "@google-cloud/text-to-speech": "^4.0.0", // <--- ¡Esto es clave!
+    "cors": "^2.8.5",
+    "dotenv": "^16.0.3",
+    "express": "^4.18.2"
+  }
 }
+
