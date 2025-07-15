@@ -22,26 +22,25 @@ app.use(cors({
 // Middleware para parsear el cuerpo de las solicitudes como JSON
 app.use(express.json());
 
-// **** CAMBIO CLAVE: Configurar las credenciales de Google Cloud ****
+// **** CAMBIO CLAVE: Inicializar el cliente con la API Key directamente ****
 let client;
 try {
-    if (process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON) {
-        // Si la variable de entorno GOOGLE_APPLICATION_CREDENTIALS_JSON existe (en Render.com)
-        // parseamos su contenido como un objeto JSON de credenciales.
-        console.log('Backend: Usando credenciales de GOOGLE_APPLICATION_CREDENTIALS_JSON.');
+    if (process.env.GOOGLE_TTS_API_KEY) {
+        console.log('Backend: Usando GOOGLE_TTS_API_KEY para autenticación.');
         client = new TextToSpeechClient({
-            credentials: JSON.parse(process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON)
+            key: process.env.GOOGLE_TTS_API_KEY // Pasa la API Key directamente
         });
     } else {
-        // Para desarrollo local, si GOOGLE_APPLICATION_CREDENTIALS apunta a un archivo.
-        // O si no hay ninguna variable, intentará cargar las credenciales por defecto.
-        console.log('Backend: No se encontró GOOGLE_APPLICATION_CREDENTIALS_JSON. Intentando credenciales por defecto.');
-        client = new TextToSpeechClient();
+        console.error('Backend: GOOGLE_TTS_API_KEY no encontrada en las variables de entorno.');
+        // Si no hay API Key, el cliente no se puede inicializar correctamente.
+        // Esto causará un error si se intenta usar sin credenciales.
+        client = new TextToSpeechClient(); // Intentará cargar credenciales por defecto, lo que fallará.
+        throw new Error('GOOGLE_TTS_API_KEY no configurada. No se puede autenticar con Google Cloud TTS.');
     }
 } catch (e) {
-    console.error('Backend: Error al inicializar TextToSpeechClient con credenciales:', e);
-    // Si hay un error al parsear el JSON, el servidor no debería iniciar.
-    process.exit(1); // Salir del proceso Node.js con un código de error.
+    console.error('Backend: Error al inicializar TextToSpeechClient:', e);
+    // Si hay un error al inicializar el cliente, salir del proceso.
+    process.exit(1); 
 }
 // **** FIN CAMBIO CLAVE ****
 
@@ -61,6 +60,7 @@ app.post('/tts', async (req, res) => {
     };
 
     try {
+        // Realiza la llamada a la API de Google Cloud TTS
         const [response] = await client.synthesizeSpeech(request);
         
         res.set('Content-Type', 'audio/mpeg');
