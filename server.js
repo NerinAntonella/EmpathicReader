@@ -4,18 +4,17 @@
 import express from 'express';
 import { TextToSpeechClient } from '@google-cloud/text-to-speech';
 import cors from 'cors';
-import dotenv from 'dotenv';
+import dotenv from 'dotenv'; // Todavía útil para desarrollo local si usas .env
 
-// Cargar variables de entorno desde .env
+// Cargar variables de entorno desde .env (para desarrollo local)
 dotenv.config();
 
 const app = express();
 const port = process.env.PORT || 3000;
 
-// Configurar CORS para permitir solicitudes desde tu extensión de Chrome
-// Esto es crucial para la seguridad y para que el navegador permita la comunicación.
+// Configurar CORS
 app.use(cors({
-    origin: '*', // Permite cualquier origen. En producción, deberías restringirlo a la URL de tu extensión.
+    origin: '*', 
     methods: ['GET', 'POST'],
     allowedHeaders: ['Content-Type']
 }));
@@ -23,49 +22,54 @@ app.use(cors({
 // Middleware para parsear el cuerpo de las solicitudes como JSON
 app.use(express.json());
 
-// Inicializa el cliente de Google Cloud Text-to-Speech
-// Asegúrate de que GOOGLE_APPLICATION_CREDENTIALS esté configurado en tu entorno
-// o que la clave de la API esté disponible de otra forma segura.
-// Para Render.com, la variable de entorno GOOGLE_APPLICATION_CREDENTIALS
-// debe apuntar al archivo JSON de tu clave de servicio.
-const client = new TextToSpeechClient();
+// **** CAMBIO CLAVE: Configurar las credenciales de Google Cloud ****
+let client;
+try {
+    if (process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON) {
+        // Si la variable de entorno GOOGLE_APPLICATION_CREDENTIALS_JSON existe (en Render.com)
+        // parseamos su contenido como un objeto JSON de credenciales.
+        console.log('Backend: Usando credenciales de GOOGLE_APPLICATION_CREDENTIALS_JSON.');
+        client = new TextToSpeechClient({
+            credentials: JSON.parse(process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON)
+        });
+    } else {
+        // Para desarrollo local, si GOOGLE_APPLICATION_CREDENTIALS apunta a un archivo.
+        // O si no hay ninguna variable, intentará cargar las credenciales por defecto.
+        console.log('Backend: No se encontró GOOGLE_APPLICATION_CREDENTIALS_JSON. Intentando credenciales por defecto.');
+        client = new TextToSpeechClient();
+    }
+} catch (e) {
+    console.error('Backend: Error al inicializar TextToSpeechClient con credenciales:', e);
+    // Si hay un error al parsear el JSON, el servidor no debería iniciar.
+    process.exit(1); // Salir del proceso Node.js con un código de error.
+}
+// **** FIN CAMBIO CLAVE ****
+
 
 // Ruta para la síntesis de texto a voz
 app.post('/tts', async (req, res) => {
     const { text } = req.body;
 
-    // Validación básica
     if (!text) {
         return res.status(400).json({ error: { message: 'El texto es requerido.', details: 'No se proporcionó el parámetro "text" en el cuerpo de la solicitud.' } });
     }
 
-    // Configuración de la solicitud a la API de Google Cloud TTS
     const request = {
         input: { text: text },
-        // **** CAMBIO CLAVE AQUÍ: Voz más natural (Neural2) ****
-        voice: { languageCode: 'es-ES', name: 'es-ES-Neural2-A' }, // Voz femenina natural de España
-        // Si prefieres una voz masculina natural de España, usa:
-        // voice: { languageCode: 'es-ES', name: 'es-ES-Neural2-B' }, 
-        // Si quieres probar una voz de EE. UU. (también muy natural):
-        // voice: { languageCode: 'es-US', name: 'es-US-Neural2-A' }, // Voz femenina natural de EE. UU.
-        // voice: { languageCode: 'es-US', name: 'es-US-Neural2-B' }, // Voz masculina natural de EE. UU.
-        
+        voice: { languageCode: 'es-ES', name: 'es-ES-Neural2-A' }, 
         audioConfig: { audioEncoding: 'MP3' },
     };
 
     try {
-        // Realiza la llamada a la API de Google Cloud TTS
         const [response] = await client.synthesizeSpeech(request);
         
-        // El audioContent es un Buffer, lo enviamos directamente como audio/mpeg
         res.set('Content-Type', 'audio/mpeg');
         res.send(response.audioContent);
     } catch (error) {
         console.error('Backend: Error al llamar a Google Cloud TTS:', error);
-        // Manejo de errores más detallado para el cliente
         let errorMessage = 'Error interno del servidor al procesar TTS.';
         if (error.details) {
-            errorMessage = error.details; // Google Cloud a menudo proporciona detalles en 'error.details'
+            errorMessage = error.details;
         } else if (error.message) {
             errorMessage = error.message;
         }
