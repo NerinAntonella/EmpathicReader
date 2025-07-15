@@ -3,12 +3,12 @@
   "version": "1.0.0",
   "description": "Backend relay for Google Cloud Text-to-Speech",
   "main": "server.js",
-  "type": "module", // Asegúrate de que esto esté para los 'import'
+  "type": "module", 
   "scripts": {
     "start": "node server.js"
   },
   "dependencies": {
-    "@google-cloud/text-to-speech": "^4.0.0", // <--- ¡Esto es clave!
+    "@google-cloud/text-to-speech": "^4.0.0", 
     "cors": "^2.8.5",
     "dotenv": "^16.0.3",
     "express": "^4.18.2"
