@@ -1,6 +1,6 @@
-// content.js - Versión: 2025-07-15_V_FINAL_CONFIRM
+// content.js - Versión: 2025-07-15_V_FINAL_COMPLETE
 // Este script interactúa con el contenido de la página web y reproduce el audio.
-console.log('content.js: Script inyectado en la página. Versión: 2025-07-15_V_FINAL_CONFIRM');
+console.log('content.js: Script inyectado en la página. Versión: 2025-07-15_V_FINAL_COMPLETE');
 
 let audioPlayer = null; // Elemento de audio para la reproducción.
 let backgroundPort = null; // Puerto de comunicación con background.js.
@@ -198,8 +198,40 @@ function playAudioFromBlob(audioBlob) {
     });
 }
 
+// **** FUNCIONES DE UI (INDICADOR DE CARGA, CONTROLES, BOTÓN DE PLAY) ****
+
+function showLoadingIndicator(message) {
+    removeLoadingIndicator(); // Asegura que solo haya uno.
+
+    const loader = document.createElement('div');
+    loader.id = 'tts-loader';
+    loader.textContent = `🔄 ${message}`;
+    loader.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 10000;
+        padding: 15px;
+        background: #28a745; /* Verde para indicar progreso */
+        color: white;
+        border-radius: 8px;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        font-family: 'Inter', sans-serif;
+        font-size: 14px;
+        font-weight: bold;
+    `;
+    document.body.appendChild(loader);
+}
+
+function removeLoadingIndicator() {
+    const loader = document.getElementById('tts-loader');
+    if (loader) {
+        loader.remove();
+    }
+}
+
 function showAudioControls() {
-    removeAudioControls();
+    removeAudioControls(); // Asegura que solo haya uno.
 
     const controlsDiv = document.createElement('div');
     controlsDiv.id = 'tts-audio-controls';
@@ -270,7 +302,7 @@ function removeAudioControls() {
 }
 
 function showPlayButton(audioURL) {
-    removePlayButton();
+    removePlayButton(); // Asegura que solo haya uno.
 
     const playButton = document.createElement('button');
     playButton.id = 'playAssistantAudioButton';
@@ -306,7 +338,7 @@ function showPlayButton(audioURL) {
         audio.play().then(() => {
             console.log('Audio manual reproduciéndose correctamente.');
             removePlayButton();
-            audioPlayer = audio;
+            audioPlayer = audio; // Asignar el nuevo reproductor a la variable global.
             showAudioControls();
         }).catch(error => {
             console.error('Error al reproducir audio manualmente:', error);
