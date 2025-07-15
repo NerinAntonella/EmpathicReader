@@ -1,75 +1,84 @@
+// server.js - Backend Relay para Google Cloud Text-to-Speech
+// Este servidor Node.js actúa como un intermediario para la API de Google Cloud TTS.
+
 import express from 'express';
-import fetch from 'node-fetch';
+import { TextToSpeechClient } from '@google-cloud/text-to-speech';
+import cors from 'cors';
+import dotenv from 'dotenv';
+
+// Cargar variables de entorno desde .env
+dotenv.config();
 
 const app = express();
+const port = process.env.PORT || 3000;
+
+// Configurar CORS para permitir solicitudes desde tu extensión de Chrome
+// Esto es crucial para la seguridad y para que el navegador permita la comunicación.
+app.use(cors({
+    origin: '*', // Permite cualquier origen. En producción, deberías restringirlo a la URL de tu extensión.
+    methods: ['GET', 'POST'],
+    allowedHeaders: ['Content-Type']
+}));
+
+// Middleware para parsear el cuerpo de las solicitudes como JSON
 app.use(express.json());
 
-// La API Key de Google Cloud TTS se lee de una variable de entorno.
-// Asegúrate de configurar GOOGLE_TTS_API_KEY en Render.com
-const GOOGLE_TTS_API_KEY = process.env.GOOGLE_TTS_API_KEY;
+// Inicializa el cliente de Google Cloud Text-to-Speech
+// Asegúrate de que GOOGLE_APPLICATION_CREDENTIALS esté configurado en tu entorno
+// o que la clave de la API esté disponible de otra forma segura.
+// Para Render.com, la variable de entorno GOOGLE_APPLICATION_CREDENTIALS
+// debe apuntar al archivo JSON de tu clave de servicio.
+const client = new TextToSpeechClient();
 
-// Verificar que la API Key esté configurada
-if (!GOOGLE_TTS_API_KEY) {
-  console.error('ERROR: La variable de entorno GOOGLE_TTS_API_KEY no está configurada en el servidor.');
-}
-
+// Ruta para la síntesis de texto a voz
 app.post('/tts', async (req, res) => {
-  console.log('Backend: Recibida solicitud POST en /tts');
-  const { text } = req.body;
+    const { text } = req.body;
 
-  if (!GOOGLE_TTS_API_KEY) {
-    return res.status(500).json({ error: 'Google TTS API Key no configurada en el servidor.' });
-  }
+    // Validación básica
+    if (!text) {
+        return res.status(400).json({ error: { message: 'El texto es requerido.', details: 'No se proporcionó el parámetro "text" en el cuerpo de la solicitud.' } });
+    }
 
-  if (!text) {
-    return res.status(400).json({ error: 'Faltan parámetros: "text".' });
-  }
-
-  try {
-    console.log('Backend: Realizando llamada a Google Cloud Text-to-Speech...');
-
-    // Configuración de la solicitud para Google Cloud TTS
-    const googleTTSResponse = await fetch(`https://texttospeech.googleapis.com/v1/text:synthesize?key=${GOOGLE_TTS_API_KEY}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
+    // Configuración de la solicitud a la API de Google Cloud TTS
+    const request = {
         input: { text: text },
-        // **** CAMBIO AQUÍ: Usando la voz es-ES-Standard-A (estándar de España) ****
-        voice: { languageCode: 'es-ES', name: 'es-ES-Standard-A' },
+        // **** CAMBIO CLAVE AQUÍ: Voz más natural (Neural2) ****
+        voice: { languageCode: 'es-ES', name: 'es-ES-Neural2-A' }, // Voz femenina natural de España
+        // Si prefieres una voz masculina natural de España, usa:
+        // voice: { languageCode: 'es-ES', name: 'es-ES-Neural2-B' }, 
+        // Si quieres probar una voz de EE. UU. (también muy natural):
+        // voice: { languageCode: 'es-US', name: 'es-US-Neural2-A' }, // Voz femenina natural de EE. UU.
+        // voice: { languageCode: 'es-US', name: 'es-US-Neural2-B' }, // Voz masculina natural de EE. UU.
+        
         audioConfig: { audioEncoding: 'MP3' },
-      }),
-    });
+    };
 
-    if (!googleTTSResponse.ok) {
-      const errorData = await googleTTSResponse.json(); 
-      console.error('Backend: Error de Google Cloud TTS:', errorData);
-      return res.status(googleTTSResponse.status).json({ 
-        error: 'Error de Google Cloud TTS', 
-        details: errorData.error.message || 'Error desconocido de Google TTS.' 
-      });
+    try {
+        // Realiza la llamada a la API de Google Cloud TTS
+        const [response] = await client.synthesizeSpeech(request);
+        
+        // El audioContent es un Buffer, lo enviamos directamente como audio/mpeg
+        res.set('Content-Type', 'audio/mpeg');
+        res.send(response.audioContent);
+    } catch (error) {
+        console.error('Backend: Error al llamar a Google Cloud TTS:', error);
+        // Manejo de errores más detallado para el cliente
+        let errorMessage = 'Error interno del servidor al procesar TTS.';
+        if (error.details) {
+            errorMessage = error.details; // Google Cloud a menudo proporciona detalles en 'error.details'
+        } else if (error.message) {
+            errorMessage = error.message;
+        }
+        res.status(500).json({ error: { message: errorMessage, details: error.stack } });
     }
-
-    const responseData = await googleTTSResponse.json();
-    if (!responseData.audioContent) {
-        console.error('Backend: No se recibió contenido de audio de Google TTS.');
-        return res.status(500).json({ error: 'No se recibió contenido de audio de Google TTS.' });
-    }
-
-    const audioBuffer = Buffer.from(responseData.audioContent, 'base64');
-    
-    res.set('Content-Type', 'audio/mpeg');
-    res.send(audioBuffer);
-    console.log('Backend: Audio enviado con éxito.');
-
-  } catch (error) {
-    console.error('Backend: Error interno del servidor al procesar TTS:', error);
-    res.status(500).json({ error: 'Error interno del servidor al procesar la solicitud de TTS.' });
-  }
 });
 
-const PORT = process.env.PORT || 3001; 
-app.listen(PORT, () => {
-  console.log(`Relay backend corriendo en el puerto ${PORT}`);
+// Ruta de prueba simple para verificar que el servidor está funcionando
+app.get('/', (req, res) => {
+    res.status(200).send('El servidor de relay de TTS está funcionando.');
+});
+
+// Iniciar el servidor
+app.listen(port, () => {
+    console.log(`Backend TTS relay escuchando en el puerto ${port}`);
 });
